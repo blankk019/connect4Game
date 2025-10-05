@@ -26,7 +26,7 @@ namespace WinFormsApp1
             this.Controls.Add(btnPvE);
             
             // Set form properties
-            this.Text = "Connect 4";
+            this.Text = "Connect 4 modified";
             this.Size = new Size(350, 150);
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.StartPosition = FormStartPosition.CenterScreen;
