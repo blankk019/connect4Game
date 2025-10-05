@@ -3,3 +3,11 @@
 #ignore system generated files
 bin
 obj
+#ignore vim created files
+.gitignore.un~
+.gitignore~
+;
+.gitignore.swp
+.READme.md.un~
+.READme.md~
+
