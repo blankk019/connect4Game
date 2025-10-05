@@ -1,0 +1,5 @@
+#ignore vscode files
+.vs
+#ignore system generated files
+bin
+obj
