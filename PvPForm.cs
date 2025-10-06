@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Linq;
 using System.Windows.Forms;
 
 namespace Connect4
@@ -10,295 +9,227 @@ namespace Connect4
     {
         private const int ROWS = 6;
         private const int COLS = 7;
-
-        private TableLayoutPanel gridPanel;
-        private Button[] dropButtons;
-        private Button[,] cellButtons;
-        private Label statusLabel;
-        private Button restartButton;
-
-        // Your dictionary-based storage
-        private Dictionary<int, List<int>> player1Moves = new Dictionary<int, List<int>>();
-        private Dictionary<int, List<int>> player2Moves = new Dictionary<int, List<int>>();
-        private Dictionary<int, List<int>> allMoves = new Dictionary<int, List<int>>(); // tracks every piece per column
+        private const int CELL_SIZE = 100;
+        private const int OFFSET_X = 60;
+        private const int OFFSET_Y = 150;
 
         private bool isPlayerOneTurn = true;
+        private bool gameOver = false;
+
+        // Each player has 3 dictionaries:
+        // RowMoves[row] = list of columns
+        // ColMoves[col] = list of rows
+        // Diag1Moves[col - row] = list of columns (main diagonal "\")
+        // Diag2Moves[col + row] = list of columns (anti-diagonal "/")
+        private Dictionary<int, List<int>> p1RowMoves = new Dictionary<int, List<int>>();
+        private Dictionary<int, List<int>> p1ColMoves = new Dictionary<int, List<int>>();
+        private Dictionary<int, List<int>> p1Diag1Moves = new Dictionary<int, List<int>>();
+        private Dictionary<int, List<int>> p1Diag2Moves = new Dictionary<int, List<int>>();
+
+        private Dictionary<int, List<int>> p2RowMoves = new Dictionary<int, List<int>>();
+        private Dictionary<int, List<int>> p2ColMoves = new Dictionary<int, List<int>>();
+        private Dictionary<int, List<int>> p2Diag1Moves = new Dictionary<int, List<int>>();
+        private Dictionary<int, List<int>> p2Diag2Moves = new Dictionary<int, List<int>>();
+
+        // To know which cells are filled in total
+        private Dictionary<int, List<int>> allMoves = new Dictionary<int, List<int>>();
+
+        private Button restartButton;
+        private Label statusLabel;
 
         public PvPForm()
         {
-            Text = "Connect4 — PvP";
-            Size = new Size(900, 800); // Set initial size
-            MinimumSize = new Size(900, 800); // Set minimum size
-            StartPosition = FormStartPosition.CenterScreen; // Center on screen
-            BuildUi();
+            Text = "Connect 4 — Player vs Player";
+            Size = new Size(900, 850);
+            StartPosition = FormStartPosition.CenterScreen;
+            DoubleBuffered = true;
+
+            CreateUi();
             ResetGame();
         }
 
-        private void BuildUi()
+        private void CreateUi()
         {
-            // Parent panel to hold topPanel and gridPanel
-            var mainPanel = new TableLayoutPanel
+            restartButton = new Button
             {
-                Dock = DockStyle.Fill,
-                RowCount = 2,
-                ColumnCount = 1,
-                Padding = new Padding(0),
-                BackColor = Color.Transparent
+                Text = "Restart Game",
+                Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                Size = new Size(150, 40),
+                Location = new Point(OFFSET_X, 50)
             };
-            mainPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 90)); // Top panel height
-            mainPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); // Grid panel fills remaining space
-
-            // Top status + restart
-            var topPanel = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Fill, // Fill the row
-                Height = 80,           // Match mainPanel row height
-                Padding = new Padding(8),
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false
-            };
+            restartButton.Click += (s, e) => ResetGame();
+            Controls.Add(restartButton);
 
             statusLabel = new Label
             {
+                Font = new Font("Segoe UI", 14, FontStyle.Bold),
                 AutoSize = true,
-                Font = new Font("Segoe UI", 12, FontStyle.Bold),
-                Text = "Turn: Player 1 (Red)",
-                TextAlign = ContentAlignment.MiddleLeft
+                Location = new Point(OFFSET_X + 200, 55)
             };
+            Controls.Add(statusLabel);
 
-            restartButton = new Button
-            {
-                Text = "Restart",
-                Size = new Size(120, 48), // Fixed size for better visibility
-                Margin = new Padding(8, 8, 8, 8),
-                Font = new Font("Segoe UI", 12, FontStyle.Bold)
-            };
-            restartButton.Click += (s, e) => ResetGame();
-
-            topPanel.Controls.Add(statusLabel);
-            topPanel.Controls.Add(new Label { Width = 20 }); // spacer
-            topPanel.Controls.Add(restartButton);
-
-            // Grid (header row for drop buttons + 6 rows for cells)
-            gridPanel = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = COLS,
-                RowCount = ROWS + 1, // +1 for drop header
-                Padding = new Padding(8),
-                BackColor = Color.Transparent
-            };
-
-            // Column style
-            for (int c = 0; c < COLS; c++)
-            {
-                gridPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / COLS));
-            }
-
-            // Row styles (header fixed, rest equal)
-            gridPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 120)); // header row height increased
-            for (int r = 0; r < ROWS; r++)
-                gridPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100f / ROWS));
-
-            // create drop buttons
-            dropButtons = new Button[COLS];
-            for (int c = 0; c < COLS; c++)
-            {
-                var btn = new Button
-                {
-                    Dock = DockStyle.Fill,
-                    Text = "PLAY HERE",
-                    Font = new Font("Segoe UI", 16, FontStyle.Bold), // reduced font size
-                    Tag = c,
-                    Margin = new Padding(4),
-                    Padding = new Padding(6) // reduced padding
-                };
-                btn.Click += DropButton_Click;
-                dropButtons[c] = btn;
-                gridPanel.Controls.Add(btn, c, 0);
-            }
-
-            // create cell buttons (row 0 top, row ROWS-1 bottom)
-            cellButtons = new Button[ROWS, COLS];
-            for (int r = 0; r < ROWS; r++)
-            {
-                for (int c = 0; c < COLS; c++)
-                {
-                    var cell = new Button
-                    {
-                        Dock = DockStyle.Fill,
-                        Enabled = false, // user clicks header only
-                        BackColor = Color.LightGray,
-                        Margin = new Padding(6),
-                        FlatStyle = FlatStyle.Flat
-                    };
-                    cell.Tag = new Point(c, r);
-                    cellButtons[r, c] = cell;
-                    gridPanel.Controls.Add(cell, c, r + 1);
-                }
-            }
-
-            // Add panels to mainPanel
-            mainPanel.Controls.Add(topPanel, 0, 0);
-            mainPanel.Controls.Add(gridPanel, 0, 1);
-
-            // Add mainPanel to form
-            Controls.Add(mainPanel);
-        }
-
-        private void DropButton_Click(object sender, EventArgs e)
-        {
-            var btn = sender as Button;
-            int col = (int)btn.Tag;
-
-            int filled = allMoves.ContainsKey(col) ? allMoves[col].Count : 0;
-            if (filled >= ROWS)
-            {
-                // already full — disable the button
-                btn.Enabled = false;
-                return;
-            }
-
-            int newRow = ROWS - 1 - filled; // bottom-most available row
-
-            // Update global column record
-            if (!allMoves.ContainsKey(col)) allMoves[col] = new List<int>();
-            allMoves[col].Add(newRow);
-
-            // Update player record
-            var playerMoves = isPlayerOneTurn ? player1Moves : player2Moves;
-            if (!playerMoves.ContainsKey(col)) playerMoves[col] = new List<int>();
-            playerMoves[col].Add(newRow);
-
-            // Update UI
-            var cell = cellButtons[newRow, col];
-            cell.BackColor = isPlayerOneTurn ? Color.Red : Color.Gold;
-            // optional: disable cell so it doesn't get focus
-            cell.Enabled = false;
-
-            // If column is full now, disable header
-            if (allMoves[col].Count >= ROWS)
-                dropButtons[col].Enabled = false;
-
-            // Check win for current player
-            var winningCells = CheckWin(playerMoves, col, newRow);
-            if (winningCells != null)
-            {
-                HighlightWinningCells(winningCells);
-                MessageBox.Show($"Player {(isPlayerOneTurn ? 1 : 2)} wins!", "Game Over", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                DisableAllColumns();
-                statusLabel.Text = $"Player {(isPlayerOneTurn ? 1 : 2)} wins!";
-                return;
-            }
-
-            // Check draw (no enabled drop buttons)
-            if (IsBoardFull())
-            {
-                MessageBox.Show("Draw — board is full.", "Game Over", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                statusLabel.Text = "Draw";
-                return;
-            }
-
-            // Switch turn
-            isPlayerOneTurn = !isPlayerOneTurn;
-            UpdateStatus();
-        }
-
-        private void UpdateStatus()
-        {
-            statusLabel.Text = $"Turn: Player {(isPlayerOneTurn ? 1 : 2)} {(isPlayerOneTurn ? "(Red)" : "(Yellow)")}";
-        }
-
-        private bool IsBoardFull()
-        {
-            for (int c = 0; c < COLS; c++)
-            {
-                if (dropButtons[c].Enabled) return false;
-            }
-            return true;
-        }
-
-        private void DisableAllColumns()
-        {
-            for (int c = 0; c < COLS; c++) dropButtons[c].Enabled = false;
-        }
-
-        private void HighlightWinningCells(List<Point> winCells)
-        {
-            foreach (var p in winCells)
-            {
-                // p.X = col, p.Y = row
-                var b = cellButtons[p.Y, p.X];
-                b.BackColor = Color.LimeGreen; // highlight
-                // optional: thick border (FlatAppearance only available on FlatStyle)
-                b.FlatStyle = FlatStyle.Flat;
-            }
+            MouseClick += PvPForm_MouseClick;
         }
 
         private void ResetGame()
         {
-            // clear data
-            player1Moves.Clear();
-            player2Moves.Clear();
+            p1RowMoves.Clear(); p1ColMoves.Clear(); p1Diag1Moves.Clear(); p1Diag2Moves.Clear();
+            p2RowMoves.Clear(); p2ColMoves.Clear(); p2Diag1Moves.Clear(); p2Diag2Moves.Clear();
             allMoves.Clear();
             isPlayerOneTurn = true;
-            // reset UI
+            gameOver = false;
+            UpdateStatus();
+            Invalidate();
+        }
+
+        private void UpdateStatus()
+        {
+            statusLabel.Text = isPlayerOneTurn ? "Turn: Player 1 (Red)" : "Turn: Player 2 (Yellow)";
+        }
+
+        // ---------------------------------------------------
+        // HANDLE PLAYER CLICKS
+        // ---------------------------------------------------
+        private void PvPForm_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (gameOver) return;
+
+            // Check board limits
+            if (e.Y < OFFSET_Y || e.Y > OFFSET_Y + ROWS * CELL_SIZE)
+                return;
+
+            int col = (e.X - OFFSET_X) / CELL_SIZE;
+            if (col < 0 || col >= COLS)
+                return;
+
+            // Check how many discs already in column
+            int filled = allMoves.ContainsKey(col) ? allMoves[col].Count : 0;
+            if (filled >= ROWS)
+                return;
+
+            int newRow = ROWS - 1 - filled;
+
+            // Record move
+            if (!allMoves.ContainsKey(col))
+                allMoves[col] = new List<int>();
+            allMoves[col].Add(newRow);
+
+            // Get current player's dictionaries
+            Dictionary<int, List<int>> rowMoves = isPlayerOneTurn ? p1RowMoves : p2RowMoves;
+            Dictionary<int, List<int>> colMoves = isPlayerOneTurn ? p1ColMoves : p2ColMoves;
+            Dictionary<int, List<int>> diag1Moves = isPlayerOneTurn ? p1Diag1Moves : p2Diag1Moves;
+            Dictionary<int, List<int>> diag2Moves = isPlayerOneTurn ? p1Diag2Moves : p2Diag2Moves;
+
+            // Update all 3 structures
+            AddMove(rowMoves, newRow, col);
+            AddMove(colMoves, col, newRow);
+            AddMove(diag1Moves, col - newRow, col);
+            AddMove(diag2Moves, col + newRow, col);
+
+            Invalidate(); // redraw
+
+            // Check for win
+            if (CheckWin(rowMoves) || CheckWin(colMoves) || CheckWin(diag1Moves) || CheckWin(diag2Moves))
+            {
+                gameOver = true;
+                string winner = isPlayerOneTurn ? "Player 1 (Red)" : "Player 2 (Yellow)";
+                MessageBox.Show(winner + " wins!", "Game Over");
+                statusLabel.Text = winner + " wins!";
+                return;
+            }
+
+            // Check for draw
+            bool allFull = true;
+            for (int i = 0; i < COLS; i++)
+            {
+                if (!allMoves.ContainsKey(i) || allMoves[i].Count < ROWS)
+                {
+                    allFull = false;
+                    break;
+                }
+            }
+
+            if (allFull)
+            {
+                gameOver = true;
+                MessageBox.Show("It's a draw!", "Game Over");
+                statusLabel.Text = "Draw!";
+                return;
+            }
+
+            isPlayerOneTurn = !isPlayerOneTurn;
+            UpdateStatus();
+        }
+
+        private void AddMove(Dictionary<int, List<int>> dict, int key, int value)
+        {
+            if (!dict.ContainsKey(key))
+                dict[key] = new List<int>();
+
+            dict[key].Add(value);
+        }
+
+        // ---------------------------------------------------
+        // DRAWING THE BOARD
+        // ---------------------------------------------------
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            Graphics g = e.Graphics;
+
+            g.FillRectangle(Brushes.Blue, OFFSET_X, OFFSET_Y, COLS * CELL_SIZE, ROWS * CELL_SIZE);
+
             for (int r = 0; r < ROWS; r++)
             {
                 for (int c = 0; c < COLS; c++)
                 {
-                    cellButtons[r, c].BackColor = Color.LightGray;
-                    cellButtons[r, c].Enabled = false;
-                    cellButtons[r, c].FlatStyle = FlatStyle.Standard;
+                    int x = OFFSET_X + c * CELL_SIZE + 5;
+                    int y = OFFSET_Y + r * CELL_SIZE + 5;
+                    int size = CELL_SIZE - 10;
+
+                    Brush brush = Brushes.White;
+
+                    // Check which player has this cell
+                    if (p1ColMoves.ContainsKey(c) && p1ColMoves[c].Contains(r))
+                        brush = Brushes.Red;
+                    else if (p2ColMoves.ContainsKey(c) && p2ColMoves[c].Contains(r))
+                        brush = Brushes.Yellow;
+
+                    g.FillEllipse(brush, x, y, size, size);
+                    g.DrawEllipse(Pens.Black, x, y, size, size);
                 }
             }
-            for (int c = 0; c < COLS; c++)
-            {
-                dropButtons[c].Enabled = true;
-            }
-            UpdateStatus();
         }
 
-        // returns list of points that form the winning 4+ line OR null if no win
-        private List<Point> CheckWin(Dictionary<int, List<int>> moves, int col, int row)
+        // ---------------------------------------------------
+        // CHECK WIN (4 CONSECUTIVE NUMBERS)
+        // ---------------------------------------------------
+        private bool CheckWin(Dictionary<int, List<int>> dict)
         {
-            // check vertical (dCol=0,dRow=1)
-            var win = CollectLine(moves, col, row, 0, 1)
-                   ?? CollectLine(moves, col, row, 1, 0)    // horizontal
-                   ?? CollectLine(moves, col, row, 1, 1)    // diagonal down-right
-                   ?? CollectLine(moves, col, row, 1, -1);  // diagonal up-right
-            return win;
-        }
-
-        // Collects all connected cells in both directions for given direction (dCol,dRow).
-        // returns list if count >= 4, otherwise null.
-        private List<Point> CollectLine(Dictionary<int, List<int>> moves, int startCol, int startRow, int dCol, int dRow)
-        {
-            var cells = new List<Point> { new Point(startCol, startRow) };
-
-            // forward direction
-            int c = startCol + dCol, r = startRow + dRow;
-            while (c >= 0 && c < COLS && r >= 0 && r < ROWS)
+            foreach (var entry in dict)
             {
-                if (moves.ContainsKey(c) && moves[c].Contains(r))
-                    cells.Add(new Point(c, r));
-                else
-                    break;
-                c += dCol; r += dRow;
-            }
+                List<int> list = entry.Value;
+                if (list.Count < 4)
+                    continue;
 
-            // backward direction
-            c = startCol - dCol; r = startRow - dRow;
-            while (c >= 0 && c < COLS && r >= 0 && r < ROWS)
-            {
-                if (moves.ContainsKey(c) && moves[c].Contains(r))
-                    cells.Add(new Point(c, r));
-                else
-                    break;
-                c -= dCol; r -= dRow;
-            }
+                list.Sort();
 
-            return cells.Count >= 4 ? cells : null;
+                int consecutive = 1;
+                for (int i = 1; i < list.Count; i++)
+                {
+                    if (list[i] == list[i - 1] + 1)
+                    {
+                        consecutive++;
+                        if (consecutive >= 4)
+                            return true;
+                    }
+                    else
+                    {
+                        consecutive = 1;
+                    }
+                }
+            }
+            return false;
         }
     }
 }
