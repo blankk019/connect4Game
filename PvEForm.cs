@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Linq;
 using System.Windows.Forms;
 
 namespace Connect4
@@ -14,24 +13,24 @@ namespace Connect4
         private const int OFFSET_X = 60;
         private const int OFFSET_Y = 150;
 
-        private bool isPlayerOneTurn = true;
+        private bool isPlayerTurn = true;
         private bool gameOver = false;
 
-        private Dictionary<int, List<int>> p1RowMoves = new Dictionary<int, List<int>>();
-        private Dictionary<int, List<int>> p1ColMoves = new Dictionary<int, List<int>>();
-        private Dictionary<int, List<int>> p1Diag1Moves = new Dictionary<int, List<int>>();
-        private Dictionary<int, List<int>> p1Diag2Moves = new Dictionary<int, List<int>>();
+        private Dictionary<int, List<int>> playerRowMoves = new();
+        private Dictionary<int, List<int>> playerColMoves = new();
+        private Dictionary<int, List<int>> playerDiag1Moves = new();
+        private Dictionary<int, List<int>> playerDiag2Moves = new();
 
-        private Dictionary<int, List<int>> aiRowMoves = new Dictionary<int, List<int>>();
-        private Dictionary<int, List<int>> aiColMoves = new Dictionary<int, List<int>>();
-        private Dictionary<int, List<int>> aiDiag1Moves = new Dictionary<int, List<int>>();
-        private Dictionary<int, List<int>> aiDiag2Moves = new Dictionary<int, List<int>>();
+        private Dictionary<int, List<int>> aiRowMoves = new();
+        private Dictionary<int, List<int>> aiColMoves = new();
+        private Dictionary<int, List<int>> aiDiag1Moves = new();
+        private Dictionary<int, List<int>> aiDiag2Moves = new();
 
-        private Dictionary<int, List<int>> allMoves = new Dictionary<int, List<int>>();
+        private Dictionary<int, List<int>> allMoves = new();
 
         private Button restartButton;
         private Label statusLabel;
-        private Random rand = new Random();
+        private Random random = new Random();
 
         public PvEForm()
         {
@@ -69,10 +68,10 @@ namespace Connect4
 
         private void ResetGame()
         {
-            p1RowMoves.Clear(); p1ColMoves.Clear(); p1Diag1Moves.Clear(); p1Diag2Moves.Clear();
+            playerRowMoves.Clear(); playerColMoves.Clear(); playerDiag1Moves.Clear(); playerDiag2Moves.Clear();
             aiRowMoves.Clear(); aiColMoves.Clear(); aiDiag1Moves.Clear(); aiDiag2Moves.Clear();
             allMoves.Clear();
-            isPlayerOneTurn = true;
+            isPlayerTurn = true;
             gameOver = false;
             UpdateStatus();
             Invalidate();
@@ -80,13 +79,15 @@ namespace Connect4
 
         private void UpdateStatus()
         {
-            statusLabel.Text = isPlayerOneTurn ? "Your Turn (Red)" : "AI is thinking...";
+            statusLabel.Text = isPlayerTurn ? "Your Turn (Red)" : "AI Thinking...";
         }
 
+        // -------------------------------------------
+        // HANDLE CLICKS (PLAYER MOVE)
+        // -------------------------------------------
         private void PvEForm_MouseClick(object sender, MouseEventArgs e)
         {
-            if (gameOver || !isPlayerOneTurn)
-                return;
+            if (gameOver || !isPlayerTurn) return;
 
             if (e.Y < OFFSET_Y || e.Y > OFFSET_Y + ROWS * CELL_SIZE)
                 return;
@@ -95,70 +96,103 @@ namespace Connect4
             if (col < 0 || col >= COLS)
                 return;
 
-            if (!DropDisc(col, isPlayerOneTurn))
+            int filled = allMoves.ContainsKey(col) ? allMoves[col].Count : 0;
+            if (filled >= ROWS)
                 return;
 
-            if (CheckWinCondition())
-                return;
+            int newRow = ROWS - 1 - filled;
 
-            isPlayerOneTurn = false;
+            // record player move
+            if (!allMoves.ContainsKey(col))
+                allMoves[col] = new List<int>();
+            allMoves[col].Add(newRow);
+
+            AddMove(playerRowMoves, newRow, col);
+            AddMove(playerColMoves, col, newRow);
+            AddMove(playerDiag1Moves, col - newRow, col);
+            AddMove(playerDiag2Moves, col + newRow, col);
+
+            Invalidate();
+
+            if (CheckWin(playerRowMoves) || CheckWin(playerColMoves) ||
+                CheckWin(playerDiag1Moves) || CheckWin(playerDiag2Moves))
+            {
+                gameOver = true;
+                statusLabel.Text = "You Win!";
+                MessageBox.Show("You Win!", "Game Over");
+                return;
+            }
+
+            if (IsDraw())
+            {
+                gameOver = true;
+                statusLabel.Text = "Draw!";
+                MessageBox.Show("It's a draw!", "Game Over");
+                return;
+            }
+
+            isPlayerTurn = false;
             UpdateStatus();
 
-            // Let AI play after short delay
+            // Let AI move after short delay
             System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer { Interval = 600 };
             timer.Tick += (s, ev) =>
             {
                 timer.Stop();
-                AIPlay();
+                AIMove();
             };
             timer.Start();
         }
 
-        private void AIPlay()
+        // -------------------------------------------
+        // AI MOVE LOGIC
+        // -------------------------------------------
+        private void AIMove()
         {
-            if (gameOver)
-                return;
+            if (gameOver) return;
 
-            int col;
-            List<int> availableCols = Enumerable.Range(0, COLS)
-                .Where(c => !allMoves.ContainsKey(c) || allMoves[c].Count < ROWS)
-                .ToList();
+            List<int> validCols = new();
+            for (int c = 0; c < COLS; c++)
+            {
+                if (!allMoves.ContainsKey(c) || allMoves[c].Count < ROWS)
+                    validCols.Add(c);
+            }
 
-            if (availableCols.Count == 0) return;
+            if (validCols.Count == 0) return;
 
-            col = availableCols[rand.Next(availableCols.Count)];
-            DropDisc(col, false);
-
-            CheckWinCondition();
-
-            isPlayerOneTurn = true;
-            UpdateStatus();
-        }
-
-        private bool DropDisc(int col, bool isPlayer)
-        {
-            int filled = allMoves.ContainsKey(col) ? allMoves[col].Count : 0;
-            if (filled >= ROWS)
-                return false;
-
-            int newRow = ROWS - 1 - filled;
+            int col = validCols[random.Next(validCols.Count)];
+            int newRow = ROWS - 1 - (allMoves.ContainsKey(col) ? allMoves[col].Count : 0);
 
             if (!allMoves.ContainsKey(col))
                 allMoves[col] = new List<int>();
             allMoves[col].Add(newRow);
 
-            var rowMoves = isPlayer ? p1RowMoves : aiRowMoves;
-            var colMoves = isPlayer ? p1ColMoves : aiColMoves;
-            var diag1Moves = isPlayer ? p1Diag1Moves : aiDiag1Moves;
-            var diag2Moves = isPlayer ? p1Diag2Moves : aiDiag2Moves;
-
-            AddMove(rowMoves, newRow, col);
-            AddMove(colMoves, col, newRow);
-            AddMove(diag1Moves, col - newRow, col);
-            AddMove(diag2Moves, col + newRow, col);
+            AddMove(aiRowMoves, newRow, col);
+            AddMove(aiColMoves, col, newRow);
+            AddMove(aiDiag1Moves, col - newRow, col);
+            AddMove(aiDiag2Moves, col + newRow, col);
 
             Invalidate();
-            return true;
+
+            if (CheckWin(aiRowMoves) || CheckWin(aiColMoves) ||
+                CheckWin(aiDiag1Moves) || CheckWin(aiDiag2Moves))
+            {
+                gameOver = true;
+                statusLabel.Text = "AI Wins!";
+                MessageBox.Show("AI Wins!", "Game Over");
+                return;
+            }
+
+            if (IsDraw())
+            {
+                gameOver = true;
+                statusLabel.Text = "Draw!";
+                MessageBox.Show("It's a draw!", "Game Over");
+                return;
+            }
+
+            isPlayerTurn = true;
+            UpdateStatus();
         }
 
         private void AddMove(Dictionary<int, List<int>> dict, int key, int value)
@@ -168,45 +202,40 @@ namespace Connect4
             dict[key].Add(value);
         }
 
-        private bool CheckWinCondition()
+        // -------------------------------------------
+        // DRAW THE BOARD
+        // -------------------------------------------
+        protected override void OnPaint(PaintEventArgs e)
         {
-            if (CheckWin(p1RowMoves) || CheckWin(p1ColMoves) || CheckWin(p1Diag1Moves) || CheckWin(p1Diag2Moves))
-            {
-                gameOver = true;
-                MessageBox.Show("You win!", "Game Over");
-                statusLabel.Text = "You win!";
-                return true;
-            }
+            base.OnPaint(e);
+            Graphics g = e.Graphics;
 
-            if (CheckWin(aiRowMoves) || CheckWin(aiColMoves) || CheckWin(aiDiag1Moves) || CheckWin(aiDiag2Moves))
-            {
-                gameOver = true;
-                MessageBox.Show("AI wins!", "Game Over");
-                statusLabel.Text = "AI wins!";
-                return true;
-            }
+            g.FillRectangle(Brushes.Blue, OFFSET_X, OFFSET_Y, COLS * CELL_SIZE, ROWS * CELL_SIZE);
 
-            bool full = true;
-            for (int i = 0; i < COLS; i++)
+            for (int r = 0; r < ROWS; r++)
             {
-                if (!allMoves.ContainsKey(i) || allMoves[i].Count < ROWS)
+                for (int c = 0; c < COLS; c++)
                 {
-                    full = false;
-                    break;
+                    int x = OFFSET_X + c * CELL_SIZE + 5;
+                    int y = OFFSET_Y + r * CELL_SIZE + 5;
+                    int size = CELL_SIZE - 10;
+
+                    Brush brush = Brushes.White;
+
+                    if (playerColMoves.ContainsKey(c) && playerColMoves[c].Contains(r))
+                        brush = Brushes.Red;
+                    else if (aiColMoves.ContainsKey(c) && aiColMoves[c].Contains(r))
+                        brush = Brushes.Yellow;
+
+                    g.FillEllipse(brush, x, y, size, size);
+                    g.DrawEllipse(Pens.Black, x, y, size, size);
                 }
             }
-
-            if (full)
-            {
-                gameOver = true;
-                MessageBox.Show("It's a draw!", "Game Over");
-                statusLabel.Text = "Draw!";
-                return true;
-            }
-
-            return false;
         }
 
+        // -------------------------------------------
+        // WIN & DRAW CHECK
+        // -------------------------------------------
         private bool CheckWin(Dictionary<int, List<int>> dict)
         {
             foreach (var entry in dict)
@@ -216,7 +245,6 @@ namespace Connect4
                     continue;
 
                 list.Sort();
-
                 int consecutive = 1;
                 for (int i = 1; i < list.Count; i++)
                 {
@@ -235,32 +263,14 @@ namespace Connect4
             return false;
         }
 
-        protected override void OnPaint(PaintEventArgs e)
+        private bool IsDraw()
         {
-            base.OnPaint(e);
-            Graphics g = e.Graphics;
-
-            g.FillRectangle(Brushes.Blue, OFFSET_X, OFFSET_Y, COLS * CELL_SIZE, ROWS * CELL_SIZE);
-
-            for (int r = 0; r < ROWS; r++)
+            for (int i = 0; i < COLS; i++)
             {
-                for (int c = 0; c < COLS; c++)
-                {
-                    int x = OFFSET_X + c * CELL_SIZE + 5;
-                    int y = OFFSET_Y + r * CELL_SIZE + 5;
-                    int size = CELL_SIZE - 10;
-
-                    Brush brush = Brushes.White;
-
-                    if (p1ColMoves.ContainsKey(c) && p1ColMoves[c].Contains(r))
-                        brush = Brushes.Red;
-                    else if (aiColMoves.ContainsKey(c) && aiColMoves[c].Contains(r))
-                        brush = Brushes.Yellow;
-
-                    g.FillEllipse(brush, x, y, size, size);
-                    g.DrawEllipse(Pens.Black, x, y, size, size);
-                }
+                if (!allMoves.ContainsKey(i) || allMoves[i].Count < ROWS)
+                    return false;
             }
+            return true;
         }
     }
 }
