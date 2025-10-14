@@ -1,4 +1,4 @@
-# 🎮 Connect 4 Game (Windows Forms - C#)
+# Connect 4 Game (Windows Forms - C#)
 
 A simple **Connect 4** game built using **Windows Forms in C#**.  
 The project supports two play modes:
@@ -9,7 +9,7 @@ This project was created to practice **C# fundamentals**, **Windows Forms UI**, 
 
 ---
 
-## 🧩 Features
+## Features
 
 - 7x6 Connect 4 grid (standard size)
 - Player vs Player mode (local two-player)
@@ -24,7 +24,7 @@ This project was created to practice **C# fundamentals**, **Windows Forms UI**, 
 
 ---
 
-## 🧠 How the Game Works
+## How the Game Works
 
 - The board is drawn using the **OnPaint()** method.
 - Each cell is represented by a colored circle (red or yellow).
@@ -37,7 +37,7 @@ This project was created to practice **C# fundamentals**, **Windows Forms UI**, 
 
 ---
 
-## 🗂️ Project Structure
+## Project Structure
 
 Connect4/
 │
@@ -51,7 +51,7 @@ Connect4/
 
 ---
 
-## ⚙️ Technologies Used
+## Technologies Used
 
 - **C# (.NET Framework / WinForms)**
 - **Visual Studio / Visual Studio Code**
@@ -60,7 +60,7 @@ Connect4/
 
 ---
 
-## 🚀 How to Run
+## How to Run
 
 1. Clone or download this repository.
 2. Open the `.sln` file using **Visual Studio**.
@@ -70,7 +70,7 @@ Connect4/
 
 ---
 
-## 💡 Learning Goals
+## Learning Goals
 
 This project was created to strengthen understanding of:
 - Windows Forms controls and event handling
@@ -79,6 +79,7 @@ This project was created to strengthen understanding of:
 - Refactoring logic for clarity and beginner-friendliness
 
 ---
-## 👨‍💻 Author
+## Author
 
 Developed by **Ahmed Mamdouh** 
+
