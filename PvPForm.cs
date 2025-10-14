@@ -1,4 +1,23 @@
-﻿using System;
+﻿/*
+ * --------------------------------------------------------------- 
+ * Author: Ahmed Mamdouh Mohamed
+ * Email: ahmed.mamdouh.01999@gmail.com
+ * GitHub: https://github.com/blankk019
+ * LinkedIn: https://www.linkedin.com/in/ahmed-mamdouh04/
+ * 
+ * Description:
+ * A classic Connect 4 game built using C# and Windows Forms.
+ * This version implements a Player vs Environment (AI) mode and a Player vs Player mode.
+ * 
+ * The game logic uses dictionaries to efficiently track moves for
+ * each player — by rows, columns, and both diagonals
+ * ---------------------------------------------------------------
+ */
+
+
+
+
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
