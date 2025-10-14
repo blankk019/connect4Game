@@ -2,8 +2,8 @@
 
 A simple **Connect 4** game built using **Windows Forms in C#**.  
 The project supports two play modes:
-- 🧍‍♂️ Player vs Player (PvP)
-- 🤖 Player vs Computer (PvE) *(basic random-move logic)*
+-  Player vs Player (PvP)
+-  Player vs Computer (PvE) *(basic random-move logic)*
 
 This project was created to practice **C# fundamentals**, **Windows Forms UI**, and **basic game logic** implementation.
 
@@ -82,4 +82,5 @@ This project was created to strengthen understanding of:
 ## Author
 
 Developed by **Ahmed Mamdouh** 
+
 
